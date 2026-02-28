@@ -1,0 +1,23 @@
+# Python Dependencies
+
+## Machine Learning
+scikit-learn
+tensorflow
+keras
+pandas
+numpy
+
+## Computer Vision
+opencv-python
+scikit-image
+Pillow
+
+## Databases
+sqlalchemy
+psycopg2
+mysql-connector-python
+
+## Web Frameworks
+flask
+django
+fastapi
