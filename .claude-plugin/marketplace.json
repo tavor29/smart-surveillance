@@ -1,0 +1,14 @@
+{
+  "name": "smart-surveillance-mods",
+  "description": "Claude Code mods from the Smart Surveillance team, starting with Savvy Progress by Johnny Viz.",
+  "owner": {
+    "name": "Johnny Viz"
+  },
+  "plugins": [
+    {
+      "name": "savvy-progress",
+      "source": "./mods/savvy-progress",
+      "description": "Live flow tracking for Claude Code: /savvy-flow pane, progress band, status line, milestone toasts and lifetime stats."
+    }
+  ]
+}

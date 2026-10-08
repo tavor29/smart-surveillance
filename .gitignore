@@ -14,3 +14,5 @@ Thumbs.db
 .env
 instance/
 *.sqlite3
+# Claude Code mod types (written by the engine)
+mods/*/.claude-plugin/types/

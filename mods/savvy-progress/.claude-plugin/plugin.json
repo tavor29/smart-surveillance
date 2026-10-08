@@ -1,0 +1,7 @@
+{
+  "name": "savvy-progress",
+  "version": "0.1.0",
+  "description": "Savvy Progress by Johnny Viz: live flow tracking for Claude Code — /savvy-flow pane, progress band, status line, milestone toasts and lifetime stats.",
+  "author": { "name": "Johnny Viz" },
+  "types": "./types/index.d.ts"
+}
