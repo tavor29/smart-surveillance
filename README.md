@@ -45,6 +45,15 @@ The system is built on a client-server architecture. The client component is a w
 - **Add Cameras:** Use the admin panel to add new camera feeds.
 - **Setting Alerts:** Configure alerts for different activity types through the settings tab.
 
+## Claude Code Mods
+This repository is also a Claude Code plugin marketplace. It ships **Savvy Progress** by Johnny Viz, a live flow tracker opened with `/savvy-flow`. Install it at a Claude Code prompt:
+
+```
+/plugin install savvy-progress --marketplace tavor29/smart-surveillance
+```
+
+See [`mods/savvy-progress/README.md`](mods/savvy-progress/README.md) for its features.
+
 ## Contribution Guidelines
 We welcome contributions! To contribute to the project, please follow these steps:
 1. Fork the repository.
