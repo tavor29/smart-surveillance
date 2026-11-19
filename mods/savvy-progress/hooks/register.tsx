@@ -1,14 +1,18 @@
 // Savvy Progress, by Johnny Viz.
 // Live flow tracking across Claude Code: the /savvy-flow command and pane,
 // a progress band above the prompt, a status line, milestone toasts, a
-// checkpoint tool the model can call, and lifetime stats kept in the store.
+// checkpoint tool the model can call, lifetime stats kept in the store, and
+// GSD (get-shit-done) milestone and phase progress read from .planning/.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
+
+import { gsdHeadline, parseGsd } from './gsd'
 
 import type {
   Call,
   CallState,
   Checkpoint,
+  GsdProgress,
   Lifetime,
   LiveTurn,
   Todo,
@@ -34,14 +38,18 @@ const totals = atom({ plugin: 'savvy-progress', key: 'totals' } as const, ZERO_T
 const checkpoints = atom({ plugin: 'savvy-progress', key: 'checkpoints' } as const, [])
 const now = atom({ plugin: 'savvy-progress', key: 'now' } as const, 0)
 const isBandHidden = atom({ plugin: 'savvy-progress', key: 'isBandHidden' } as const, false)
+const gsd = atom({ plugin: 'savvy-progress', key: 'gsd' } as const, null)
+
+const GSD_EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 
 const HELP = [
-  'Savvy Progress — /savvy-flow [open|close|band|reset|stats|help]',
+  'Savvy Progress — /savvy-flow [open|close|band|reset|stats|gsd|help]',
   '  open   open the Savvy Flow pane (default)',
   '  close  close the pane',
   '  band   show or hide the progress band above the prompt',
   '  reset  clear this session\'s flow counters',
   '  stats  print this session\'s and lifetime stats',
+  '  gsd    re-read .planning/ and print GSD milestone and phase progress',
 ].join('\n')
 
 export function bar(done: number, total: number, width: number): string {
@@ -90,14 +98,76 @@ async function bumpLifetime($: EngineInterface, delta: Partial<Lifetime>): Promi
   })
 }
 
+async function readOptional($: EngineInterface, path: string): Promise<string | undefined> {
+  try {
+    return (await $.fs.exists(path)) ? await $.fs.read(path) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function touchesPlanning(tool: string, input: Record<string, unknown>): boolean {
+  const target = tool === 'Bash' ? input.command : input.file_path ?? input.notebook_path
+  if (typeof target !== 'string') return false
+  if (tool === 'Bash') return /\.planning\b|gsd-tools|gsd-sdk/.test(target)
+  return GSD_EDIT_TOOLS.has(tool) && /(^|\/)\.planning\//.test(target)
+}
+
+async function refreshGsd($: EngineInterface, root: string): Promise<GsdProgress | null> {
+  const base = root === '' ? '.planning' : `${root.replace(/\/$/, '')}/.planning`
+  const [state, roadmap] = await Promise.all([
+    readOptional($, `${base}/STATE.md`),
+    readOptional($, `${base}/ROADMAP.md`),
+  ])
+  const before = await read($, gsd)
+  const after = parseGsd(state, roadmap)
+  await update($, gsd, () => after)
+
+  if (before !== null && after !== null) {
+    const was = before.completedPhases ?? 0
+    const now = after.completedPhases ?? 0
+    if (now > was) {
+      const finished = after.phases.filter(phase => phase.isDone).at(-1)
+      $.ui.toast(`🏁 Savvy: GSD phase ${finished ? `${finished.number} (${finished.name})` : now} complete`)
+    }
+    if (after.totalPhases !== undefined && now === after.totalPhases && was < now) {
+      $.ui.toast(`🎉 Savvy: GSD milestone${after.milestone ? ` ${after.milestone}` : ''} complete`)
+    }
+  }
+  return after
+}
+
+function gsdText(progress: GsdProgress | null): string {
+  if (progress === null) {
+    return 'No GSD project here: .planning/STATE.md and .planning/ROADMAP.md were not found. Start one with /gsd-new-project.'
+  }
+  const lines = ['Savvy Progress — GSD', gsdHeadline(progress) || 'GSD project found']
+  if (progress.percent !== undefined) lines.push(`Progress: ${bar(progress.percent, 100, 20)} ${progress.percent}%`)
+  if (progress.completedPlans !== undefined && progress.totalPlans !== undefined) {
+    lines.push(`Plans: ${progress.completedPlans}/${progress.totalPlans} complete`)
+  }
+  for (const phase of progress.phases) {
+    const mark = phase.isDone ? '✔' : phase.number === progress.phase ? '▶' : '○'
+    lines.push(`  ${mark} Phase ${phase.number}: ${phase.name}`)
+  }
+  if (progress.lastActivity) lines.push(`Last activity: ${progress.lastActivity}`)
+  return lines.join('\n')
+}
+
 async function refreshStatus($: EngineInterface): Promise<void> {
-  const [live, list, sum, prev] = await Promise.all([
+  const [live, list, sum, prev, plan] = await Promise.all([
     read($, turn),
     read($, todos),
     read($, totals),
     read($, last),
+    read($, gsd),
   ])
   const parts = ['◆ savvy']
+  if (plan !== null && plan.phase !== undefined) {
+    parts.push(
+      `GSD P${plan.phase}${plan.totalPhases !== undefined ? `/${plan.totalPhases}` : ''}${plan.percent !== undefined ? ` ${plan.percent}%` : ''}`,
+    )
+  }
   const { done, total } = todoCounts(list)
   if (total > 0) parts.push(`${done}/${total} tasks`)
   if (live !== null) {
@@ -129,12 +199,13 @@ async function statsText($: EngineInterface): Promise<string> {
 
 export const register: Register = on => {
   let stopTicking: (() => void) | undefined
+  let root = ''
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'savvy-flow',
-      description: 'Savvy Progress: open the live flow pane, toggle the band, or show stats',
-      argumentHint: '[open|close|band|reset|stats|help]',
+      description: 'Savvy Progress: open the live flow pane, toggle the band, or show stats and GSD progress',
+      argumentHint: '[open|close|band|reset|stats|gsd|help]',
     })
     await $.tool.register({
       name: 'checkpoint',
@@ -147,7 +218,9 @@ export const register: Register = on => {
         required: ['label'],
       },
     })
+    root = e.cwd
     await bumpLifetime($, { sessions: 1 })
+    await refreshGsd($, root)
     await refreshStatus($)
 
     return next(e)
@@ -177,6 +250,11 @@ export const register: Register = on => {
     }
     if (verb === 'stats') {
       return { text: await statsText($) }
+    }
+    if (verb === 'gsd') {
+      const progress = await refreshGsd($, root)
+      await refreshStatus($)
+      return { text: gsdText(progress) }
     }
 
     return { text: HELP }
@@ -219,6 +297,7 @@ export const register: Register = on => {
       tools: sum.tools + 1,
       failures: sum.failures + (state === 'failed' ? 1 : 0),
     }))
+    if (state === 'done' && touchesPlanning(call.tool, input)) await refreshGsd($, root)
     await refreshStatus($)
 
     return ran
@@ -267,6 +346,7 @@ export const register: Register = on => {
     await update($, turn, () => null)
     await update($, totals, sum => ({ ...sum, turns: sum.turns + 1 }))
     await bumpLifetime($, { turns: 1, tools })
+    await refreshGsd($, root)
     if (seconds > LONG_TURN_SECONDS && !e.isAborted) {
       $.ui.toast(`Savvy: that flow ran ${duration(seconds)} with ${tools} tool calls`)
     }
@@ -286,9 +366,15 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey || (await read($, isBandHidden))) return next(e)
 
-    const [live, list, prev, tick] = await Promise.all([read($, turn), read($, todos), read($, last), read($, now)])
+    const [live, list, prev, tick, plan] = await Promise.all([
+      read($, turn),
+      read($, todos),
+      read($, last),
+      read($, now),
+      read($, gsd),
+    ])
     const { done, total, active } = todoCounts(list)
-    if (live === null && total === 0 && prev === null) return next(e)
+    if (live === null && total === 0 && prev === null && plan === null) return next(e)
 
     const { Box, Button, Text } = $.ui.resolve(e)
     const columns = e.props.bodyColumns ?? 80
@@ -297,6 +383,12 @@ export const register: Register = on => {
     return (
       <Box flexDirection="row">
         <Text color="claude" bold>◆ Savvy </Text>
+        {plan !== null && plan.phase !== undefined && (
+          <Text>
+            <Text color="suggestion">GSD P{plan.phase}{plan.totalPhases !== undefined ? `/${plan.totalPhases}` : ''}</Text>
+            {plan.percent !== undefined ? ` ${plan.percent}%` : ''}{' '}
+          </Text>
+        )}
         {total > 0 && (
           <Text>
             <Text color={done === total ? 'success' : 'claude'}>{bar(done, total, width)}</Text> {done}/{total}{' '}
@@ -322,7 +414,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
-    const [live, list, prev, sum, marks, tick, hidden] = await Promise.all([
+    const [live, list, prev, sum, marks, tick, hidden, plan] = await Promise.all([
       read($, turn),
       read($, todos),
       read($, last),
@@ -330,6 +422,7 @@ export const register: Register = on => {
       read($, checkpoints),
       read($, now),
       read($, isBandHidden),
+      read($, gsd),
     ])
     const columns = e.props.bodyColumns ?? 60
     const rows = e.viewport?.rows ?? 30
@@ -361,6 +454,43 @@ export const register: Register = on => {
           </Text>
         )}
         <Text> </Text>
+
+        {plan !== null && (
+          <Box flexDirection="column">
+            <Text bold>
+              GSD{' '}
+              <Text dimColor>{[plan.milestone, plan.milestoneName].filter(Boolean).join(' ')}</Text>
+            </Text>
+            {plan.phase !== undefined && (
+              <Text wrap="truncate-end">
+                Phase {plan.phase}
+                {plan.totalPhases !== undefined ? ` of ${plan.totalPhases}` : ''}
+                {plan.phaseName ? `: ${plan.phaseName}` : ''}
+                {plan.plan !== undefined ? ` · plan ${plan.plan}${plan.plansInPhase !== undefined ? ` of ${plan.plansInPhase}` : ''}` : ''}
+                {plan.status ? <Text dimColor> · {plan.status}</Text> : ''}
+              </Text>
+            )}
+            {plan.percent !== undefined && (
+              <Text>
+                <Text color={plan.percent === 100 ? 'success' : 'suggestion'}>
+                  {bar(plan.percent, 100, Math.max(10, Math.min(40, columns - 8)))}
+                </Text>{' '}
+                {plan.percent}%
+              </Text>
+            )}
+            {plan.phases.slice(0, 8).map(phase => (
+              <Text
+                color={phase.number === plan.phase && !phase.isDone ? 'suggestion' : undefined}
+                dimColor={phase.isDone}
+                wrap="truncate-end"
+              >
+                {phase.isDone ? '✔' : phase.number === plan.phase ? '▶' : '○'} Phase {phase.number}: {phase.name}
+              </Text>
+            ))}
+            {plan.phases.length > 8 && <Text dimColor>… {plan.phases.length - 8} more phases</Text>}
+            <Text> </Text>
+          </Box>
+        )}
 
         <Text bold>Tasks {total > 0 && <Text dimColor>{done}/{total}</Text>}</Text>
         {total === 0 ? (

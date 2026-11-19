@@ -11,7 +11,7 @@ const PANE = {
 } as const
 const BAND = {
   component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: true, maxRows: 4, bodyColumns: 100, scroll: SCROLL, view: {} },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: true, maxRows: 4, bodyColumns: 100, scroll: SCROLL, view: {} },
 } as const
 
 test('helpers format progress', async () => {

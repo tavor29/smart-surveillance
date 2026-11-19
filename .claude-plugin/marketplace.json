@@ -8,7 +8,7 @@
     {
       "name": "savvy-progress",
       "source": "./mods/savvy-progress",
-      "description": "Live flow tracking for Claude Code: /savvy-flow pane, progress band, status line, milestone toasts and lifetime stats."
+      "description": "Live flow tracking for Claude Code: /savvy-flow pane, progress band, status line, milestone toasts, lifetime stats and GSD phase progress."
     }
   ]
 }

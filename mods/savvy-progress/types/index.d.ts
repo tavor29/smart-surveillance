@@ -12,6 +12,25 @@ export type Totals = { turns: number; tools: number; failures: number; checkpoin
 
 export type Checkpoint = { label: string; at: number }
 
+export type GsdPhase = { number: string; name: string; isDone: boolean }
+
+export type GsdProgress = {
+  milestone?: string
+  milestoneName?: string
+  phase?: string
+  phaseName?: string
+  totalPhases?: number
+  completedPhases?: number
+  plan?: string
+  plansInPhase?: number
+  totalPlans?: number
+  completedPlans?: number
+  status?: string
+  percent?: number
+  lastActivity?: string
+  phases: GsdPhase[]
+}
+
 export type Lifetime = { sessions: number; turns: number; tools: number; todosCompleted: number }
 
 declare module 'claude-code' {
@@ -24,6 +43,7 @@ declare module 'claude-code' {
       checkpoints: Checkpoint[]
       now: number
       isBandHidden: boolean
+      gsd: GsdProgress | null
     }
   }
 }

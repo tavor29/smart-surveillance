@@ -1,6 +1,6 @@
 # Savvy Progress launch kit
 
-Ready-to-use copy for announcing Savvy Progress v0.1.0.
+Ready-to-use copy for announcing Savvy Progress v0.2.0.
 
 ## One-liner
 
@@ -10,18 +10,19 @@ Ready-to-use copy for announcing Savvy Progress v0.1.0.
 
 > 🚀 Just shipped **Savvy Progress**, a Claude Code mod by Johnny Viz.
 >
-> Type `/savvy-flow` and you get a live pane with your task progress bar, every tool call as it runs, milestones Claude marks along the way, and session stats. There's also a progress band above the prompt, a status line, and a toast when every task is done.
+> Type `/savvy-flow` and you get a live pane with your task progress bar, every tool call as it runs, milestones Claude marks along the way, and session stats. There's also a progress band above the prompt, a status line, and a toast when every task is done. Using GSD? It shows your milestone and phase progress too.
 >
 > Install in one line:
 > `/plugin install savvy-progress --marketplace tavor29/smart-surveillance`
 
 ## Feature bullets
 
-- **/savvy-flow**: one command to open the pane, toggle the band, reset, or print stats
+- **/savvy-flow**: one command to open the pane, toggle the band, reset, or print stats and GSD progress
 - **Live pane**: prompt and timer, task bar, tool calls marked ✔ / ✖ / …, and checkpoints
 - **Progress band and status line**: progress you can see without opening anything
 - **Milestone toasts**: one when all tasks are done, one for a long turn, one per checkpoint
 - **Checkpoint tool**: Claude can mark its own milestones in your flow
+- **GSD progress**: milestone, phase and plan from `.planning/`, with toasts when a phase or the milestone completes
 - **Lifetime stats**: sessions, turns, tool calls and tasks completed
 - **Runs everywhere**: terminal, desktop, VS Code and mobile
 
@@ -37,7 +38,9 @@ Ready-to-use copy for announcing Savvy Progress v0.1.0.
 ## Release checklist
 
 - [x] `claude plugin validate mods/savvy-progress` passes
-- [x] `claude plugin test mods/savvy-progress` passes on terminal, desktop, VS Code and mobile
+- [x] `claude plugin test mods/savvy-progress` passes on terminal, desktop, VS Code and mobile (8 tests)
+- [x] Plugin icon at `.claude-plugin/icon.png`
+- [ ] Pick a license (the plugin directory requires a LICENSE file or a `license` field)
 - [x] Marketplace entry in `.claude-plugin/marketplace.json`
 - [x] README with the install line
 - [ ] Merge to the default branch so the install line resolves
