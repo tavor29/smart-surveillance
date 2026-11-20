@@ -1,0 +1,10 @@
+{
+  "name": "savvy-progress",
+  "version": "0.2.0",
+  "description": "Savvy Progress by Johnny Viz: live flow tracking for Claude Code \u2014 /savvy-flow pane, progress band, status line, milestone toasts, lifetime stats and GSD phase progress.",
+  "author": {
+    "name": "Johnny Viz"
+  },
+  "types": "./types/index.d.ts",
+  "icon": "./.claude-plugin/icon.png"
+}
