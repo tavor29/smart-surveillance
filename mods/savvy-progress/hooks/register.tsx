@@ -197,6 +197,26 @@ async function statsText($: EngineInterface): Promise<string> {
   ].join('\n')
 }
 
+async function snapshotText($: EngineInterface, reason: string): Promise<string> {
+  const [live, list, plan, prev] = await Promise.all([read($, turn), read($, todos), read($, gsd), read($, last)])
+  const lines = [`The Savvy Flow pane can't be shown here (${reason}), so here is the flow as text.`, '']
+  if (live !== null) {
+    lines.push(`Now: ${clip(live.prompt || '(continuation)', 80)} · ${live.calls.length} tool calls`)
+  } else if (prev !== null) {
+    lines.push(`Last flow: ${duration(prev.seconds)}, ${prev.tools} tool calls${prev.failures > 0 ? `, ${prev.failures} failed` : ''}`)
+  }
+  const { done, total } = todoCounts(list)
+  if (total > 0) {
+    lines.push(`Tasks ${bar(done, total, 20)} ${done}/${total}`)
+    for (const todo of list) {
+      lines.push(`  ${todo.status === 'completed' ? '✔' : todo.status === 'in_progress' ? '▶' : '○'} ${todo.content}`)
+    }
+  }
+  if (plan !== null) lines.push('', gsdText(plan))
+  lines.push('', await statsText($))
+  return lines.join('\n')
+}
+
 export const register: Register = on => {
   let stopTicking: (() => void) | undefined
   let root = ''
@@ -231,7 +251,9 @@ export const register: Register = on => {
 
     if (verb === 'open') {
       const opened = await $.ui.open({ id: PANE, title: TITLE })
-      return { text: opened.isPlaced ? 'Savvy Flow pane opened.' : 'Savvy Flow pane is queued: widen the window to see it.' }
+      if (opened.isPlaced) return { text: 'Savvy Flow pane opened.' }
+
+      return { text: await snapshotText($, opened.reason) }
     }
     if (verb === 'close') {
       await $.ui.close({ id: PANE })
