@@ -79,3 +79,18 @@ test('a flow is tracked across the command, pane, band and stats', async ($, on)
   expect(await hidden.find({ key: 'savvy-hide' })).toBeUndefined()
   await hidden.unmount()
 })
+
+test('open falls back to a text snapshot where no pane can be placed', async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: 1_000 })
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('tool.register', ($, e) => ({ value: { tool: `mcp__savvy-progress__${e.name}` } }))
+  on('ui.status', () => ({ value: undefined }) as never)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('ui.open', () => ({ value: { isPlaced: false, reason: 'the attached app places no panes' } }) as never)
+
+  await $.session.start({ cwd: '/work', surface: 'mobile', isInteractive: true })
+  const opened = await $.command.run({ command: 'savvy-flow', args: '' } as never)
+  expect(opened.text).toContain('the attached app places no panes')
+  expect(opened.text).toContain('Savvy Progress — stats')
+})

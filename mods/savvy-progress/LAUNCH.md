@@ -38,7 +38,7 @@ Ready-to-use copy for announcing Savvy Progress v0.2.0.
 ## Release checklist
 
 - [x] `claude plugin validate mods/savvy-progress` passes
-- [x] `claude plugin test mods/savvy-progress` passes on terminal, desktop, VS Code and mobile (8 tests)
+- [x] `claude plugin test mods/savvy-progress` passes on terminal, desktop, VS Code and mobile (9 tests)
 - [x] Plugin icon at `.claude-plugin/icon.png`
 - [ ] Pick a license (the plugin directory requires a LICENSE file or a `license` field)
 - [x] Marketplace entry in `.claude-plugin/marketplace.json`
